@@ -6,3 +6,5 @@ Modify it with your login credentials and rename this file to config.py
 LOGIN = '89998887766'
 PASSWORD = 'qwerty123'
 APP_ID = 6016504
+
+INSTALLED_FEATURES = ['forward_messages']

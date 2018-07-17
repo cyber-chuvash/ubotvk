@@ -1,19 +1,17 @@
+#!/usr/bin/env python
+
 import requests
+from importlib import import_module
 
 from chuvash import ubotvk
 from vk_requests.exceptions import VkAPIError
 
-import config
 
-
-def new_message(update):
-    pass
-
-
-def handle_update(update):
-    print(update)
-    if update[0] == 4:
-        new_message(update)
+try:
+    import config
+except ImportError:
+    print('Edit config.py-example and rename it to config.py')
+    raise
 
 
 class Main:
@@ -26,6 +24,8 @@ class Main:
     def __init__(self):
         self.bot = ubotvk.Bot(login=config.LOGIN, password=config.PASSWORD, app_id=config.APP_ID, api_version='5.80')
 
+        self.features = self.import_features()
+
         self.key, self.server, self.ts = self.get_long_poll_server()
 
         while True:
@@ -34,7 +34,7 @@ class Main:
                 self.ts = response['ts']
 
                 for update in response['updates']:
-                    handle_update(update)
+                    self.handle_update(update)
 
             except VkAPIError as api_err:
                 print(api_err)
@@ -72,6 +72,23 @@ class Main:
         else:
             raise Exception
 
+    def handle_update(self, update):
+        for feature in self.features:
+            if update[0] in feature.triggered_by:
+                feature(update)
+
+    def import_features(self):
+        """
+        imports and initialises features listed in INSTALLED_FEATURES from config.py
+        :return: list of feature objects
+        """
+        features = []
+        for feature in config.INSTALLED_FEATURES:
+            features.append(import_module('bot_features.'+feature).__init__(self.bot.vk_api))
+
+        return features
+
 
 if __name__ == '__main__':
+
     main = Main()

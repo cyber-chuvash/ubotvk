@@ -25,14 +25,10 @@ class Bot:
     def __init__(self):
         self.vk_api = vk_requests.create_api(login=config.LOGIN, password=config.PASSWORD,
                                              app_id=config.APP_ID, api_version='5.80', scope='messages,offline')
+        self.db = Database()
+        self.dict_feature_chats = self.db_chats_features = None
+        self.update_chat_feature_lists()
 
-        db = Database()
-
-        self.db_chats_features = db.get_chats_features()
-        self.dict_feature_chats = {}
-        for feature in config.INSTALLED_FEATURES:
-            self.dict_feature_chats[feature] = [chat for chat in self.db_chats_features.keys()
-                                                if feature in self.db_chats_features[chat]]
         print(self.db_chats_features)
         print(self.dict_feature_chats)
 
@@ -100,6 +96,14 @@ class Bot:
                                                                             self.dict_feature_chats[feature]))
         return features
 
+    def update_chat_feature_lists(self):
+        self.db_chats_features = self.db.get_chats_features()
+        self.dict_feature_chats = {}
+
+        for feature in config.INSTALLED_FEATURES:
+            self.dict_feature_chats[feature] = [chat for chat in self.db_chats_features.keys()
+                                                if feature in self.db_chats_features[chat]]
+
 
 class Database:
     def __init__(self):
@@ -142,6 +146,21 @@ class Database:
             features.append(feature)
         else:
             features = [feature]
+
+        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
+        conn.commit()
+        conn.close()
+
+    def remove_feature(self, chat_id, feature):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
+        enabled_features = cursor.fetchone()
+        if enabled_features[0]:
+            features = json.loads(enabled_features[0])
+            features.remove(feature)
+        else:
+            features = []
 
         cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
         conn.commit()

@@ -1,20 +1,21 @@
 #!/usr/bin/env python
 
-import requests
 from importlib import import_module
+import sqlite3
+import json
 
-from chuvash import ubotvk
+import requests
+import vk_requests
 from vk_requests.exceptions import VkAPIError
 
-
 try:
-    import config
+    from ubotvk import config
 except ImportError:
     print('Edit config.py-example and rename it to config.py')
     raise
 
 
-class Main:
+class Bot:
     """
     Creates ubotvk.Bot instance with credentials from config.py,
     Gets Long Poll server,
@@ -22,7 +23,18 @@ class Main:
     """
 
     def __init__(self):
-        self.bot = ubotvk.Bot(login=config.LOGIN, password=config.PASSWORD, app_id=config.APP_ID, api_version='5.80')
+        self.vk_api = vk_requests.create_api(login=config.LOGIN, password=config.PASSWORD,
+                                             app_id=config.APP_ID, api_version='5.80', scope='messages,offline')
+
+        db = Database()
+
+        self.db_chats_features = db.get_chats_features()
+        self.dict_feature_chats = {}
+        for feature in config.INSTALLED_FEATURES:
+            self.dict_feature_chats[feature] = [chat for chat in self.db_chats_features.keys()
+                                                if feature in self.db_chats_features[chat]]
+        print(self.db_chats_features)
+        print(self.dict_feature_chats)
 
         self.features = self.import_features()
 
@@ -41,7 +53,7 @@ class Main:
                 # if api_err.code ==
 
     def get_long_poll_server(self):
-        lps = self.bot.vk_api.messages.getLongPollServer(need_pts=0, lp_version=3)
+        lps = self.vk_api.messages.getLongPollServer(need_pts=0, lp_version=3)
         return lps['key'], lps['server'], lps['ts']
 
     def long_poll(self, server, key, ts, wait=25, mode=2, version=3):
@@ -84,11 +96,58 @@ class Main:
         """
         features = []
         for feature in config.INSTALLED_FEATURES:
-            features.append(import_module('bot_features.'+feature).__init__(self.bot.vk_api))
-
+            features.append(import_module('bot_features.'+feature).__init__(self.vk_api,
+                                                                            self.dict_feature_chats[feature]))
         return features
+
+
+class Database:
+    def __init__(self):
+        self.db_file = 'conf.sqlite'
+        self.create_table_if_not_exists()
+
+    def create_table_if_not_exists(self):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""CREATE TABLE IF NOT EXISTS features (chat_id integer, enabled_features text)""")
+        conn.commit()
+        conn.close()
+
+    def get_chats_features(self):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT chat_id, enabled_features FROM features""")
+        features = cursor.fetchall()
+
+        features_dict = {}
+        for item in features:
+            features_dict[item[0]] = json.loads(item[1])
+
+        return features_dict
+
+    def add_chat(self, chat_id):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""INSERT INTO features (chat_id) VALUES (?)""", (chat_id,))
+        conn.commit()
+        conn.close()
+
+    def add_feature(self, chat_id, feature):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
+        enabled_features = cursor.fetchone()
+        if enabled_features[0]:
+            features = json.loads(enabled_features[0])
+            features.append(feature)
+        else:
+            features = [feature]
+
+        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
+        conn.commit()
+        conn.close()
 
 
 if __name__ == '__main__':
 
-    main = Main()
+    bot = Bot()

@@ -3,30 +3,25 @@
 from importlib import import_module
 import sqlite3
 import json
+import os
 
 import requests
 import vk_requests
 from vk_requests.exceptions import VkAPIError
 
-try:
-    from ubotvk import config
-except ImportError:
-    print('Edit config.py-example and rename it to config.py')
-    raise
-
 
 class Bot:
     """
-    Creates vk-requests.API instance with credentials from config.py,
+    Creates vk-requests.API instance with credentials from config.json,
     Gets Long Poll server,
     Continuously gets updates from VK,
     Calls features from config.INSTALLED_FEATURES on update
     """
 
     def __init__(self):
-        self.vk_api = vk_requests.create_api(login=config.LOGIN, password=config.PASSWORD,
-                                             app_id=config.APP_ID, api_version='5.80', scope='messages,offline')
-        self.db = Database()
+        self.vk_api = vk_requests.create_api(login=Config.LOGIN, password=Config.PASSWORD,
+                                             app_id=Config.APP_ID, api_version='5.80', scope='messages,offline')
+        self.db = Database('conf.sqlite')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
 
         print(self.dict_feature_chats)
@@ -86,30 +81,30 @@ class Bot:
 
     def import_features(self):
         """
-        imports and initialises features listed in INSTALLED_FEATURES from config.py
+        imports and initialises features listed in "installed_features" from config.json
         :return: list of feature objects
         """
         features = []
-        for feature in config.INSTALLED_FEATURES:
+        for feature in Config.INSTALLED_FEATURES:
             features.append(import_module('bot_features.'+feature).__init__(self.vk_api,
                                                                             self.dict_feature_chats[feature]))
         return features
 
 
 class Database:
-    def __init__(self):
-        self.db_file = 'conf.sqlite'
-        self.create_table_if_not_exists()
+    def __init__(self, db_file):
+        self._db_file = db_file
+        self._create_table_if_not_exists()
 
-    def create_table_if_not_exists(self):
-        conn = sqlite3.connect(self.db_file)
+    def _create_table_if_not_exists(self):
+        conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS features (chat_id integer, enabled_features text)""")
         conn.commit()
         conn.close()
 
     def get_feature_chats_dict(self):
-        conn = sqlite3.connect(self.db_file)
+        conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""SELECT chat_id, enabled_features FROM features""")
         features = cursor.fetchall()
@@ -119,27 +114,39 @@ class Database:
             features_dict[item[0]] = json.loads(item[1])
 
         feature_chats_dict = {}
-        for feature in config.INSTALLED_FEATURES:
+        for feature in Config.INSTALLED_FEATURES:
             feature_chats_dict[feature] = [chat for chat in features_dict.keys()
                                            if feature in features_dict[chat]]
 
         return feature_chats_dict
 
-    def add_chat(self, chat_id):
-        conn = sqlite3.connect(self.db_file)
+    def add_chat(self, chat_id: int):
+        assert isinstance(chat_id, int)
+
+        conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
-        cursor.execute("""INSERT INTO features (chat_id) VALUES (?)""", (chat_id,))
-        conn.commit()
+        cursor.execute("""SELECT chat_id FROM features WHERE chat_id=?""", (chat_id,))
+        sel = cursor.fetchone()
+        if sel is None or chat_id not in sel[0]:
+            cursor.execute("""INSERT INTO features (chat_id) VALUES (?)""", (chat_id,))
+            conn.commit()
         conn.close()
 
-    def add_feature(self, chat_id, feature):
-        conn = sqlite3.connect(self.db_file)
+    def add_feature(self, chat_id: int, feature: str):
+        assert isinstance(chat_id, int)
+        assert isinstance(feature, str)
+
+        conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
         enabled_features = cursor.fetchone()
         if enabled_features[0]:
             features = json.loads(enabled_features[0])
-            features.append(feature)
+            if feature not in features:
+                features.append(feature)
+            else:
+                conn.close()
+                return
         else:
             features = [feature]
 
@@ -147,8 +154,11 @@ class Database:
         conn.commit()
         conn.close()
 
-    def remove_feature(self, chat_id, feature):
-        conn = sqlite3.connect(self.db_file)
+    def remove_feature(self, chat_id: int, feature: str):
+        assert isinstance(chat_id, int)
+        assert isinstance(feature, str)
+
+        conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
         enabled_features = cursor.fetchone()
@@ -161,6 +171,15 @@ class Database:
         cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
         conn.commit()
         conn.close()
+
+
+class Config:
+    _conf = json.loads(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json'), 'r').read())
+
+    LOGIN = str(_conf['login'])
+    PASSWORD = str(_conf['password'])
+    APP_ID = int(_conf['app_id'])
+    INSTALLED_FEATURES = list(_conf['installed_features'])
 
 
 if __name__ == '__main__':

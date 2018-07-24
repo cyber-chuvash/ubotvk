@@ -10,6 +10,15 @@ import vk_requests
 from vk_requests.exceptions import VkAPIError
 
 
+class Config:
+    _conf = json.loads(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json'), 'r').read())
+
+    LOGIN = str(_conf['login'])
+    PASSWORD = str(_conf['password'])
+    APP_ID = int(_conf['app_id'])
+    INSTALLED_FEATURES = list(_conf['installed_features'])
+
+
 class Bot:
     """
     Creates vk-requests.API instance with credentials from config.json,
@@ -23,8 +32,6 @@ class Bot:
                                              app_id=Config.APP_ID, api_version='5.80', scope='messages,offline')
         self.db = Database('conf.sqlite')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
-
-        print(self.dict_feature_chats)
 
         self.features = self.import_features()
 
@@ -79,7 +86,7 @@ class Bot:
             if update[0] in feature.triggered_by:
                 feature(update)
 
-    def import_features(self):
+    def import_features(self) -> list:
         """
         imports and initialises features listed in "installed_features" from config.json
         :return: list of feature objects
@@ -103,7 +110,7 @@ class Database:
         conn.commit()
         conn.close()
 
-    def get_feature_chats_dict(self):
+    def get_feature_chats_dict(self, installed_features=Config.INSTALLED_FEATURES) -> dict:
         conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""SELECT chat_id, enabled_features FROM features""")
@@ -114,7 +121,7 @@ class Database:
             features_dict[item[0]] = json.loads(item[1])
 
         feature_chats_dict = {}
-        for feature in Config.INSTALLED_FEATURES:
+        for feature in installed_features:
             feature_chats_dict[feature] = [chat for chat in features_dict.keys()
                                            if feature in features_dict[chat]]
 
@@ -128,7 +135,8 @@ class Database:
         cursor.execute("""SELECT chat_id FROM features WHERE chat_id=?""", (chat_id,))
         sel = cursor.fetchone()
         if sel is None or chat_id not in sel[0]:
-            cursor.execute("""INSERT INTO features (chat_id) VALUES (?)""", (chat_id,))
+            cursor.execute("""INSERT INTO features (chat_id, enabled_features) VALUES (?, ?)""",
+                           (chat_id, json.dumps([])))
             conn.commit()
         conn.close()
 
@@ -161,25 +169,16 @@ class Database:
         conn = sqlite3.connect(self._db_file)
         cursor = conn.cursor()
         cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
-        enabled_features = cursor.fetchone()
-        if enabled_features[0]:
-            features = json.loads(enabled_features[0])
-            features.remove(feature)
+        enabled_features = json.loads(cursor.fetchone()[0])
+        if enabled_features and feature in enabled_features:
+            enabled_features.remove(feature)
         else:
-            features = []
+            raise AttributeError
 
-        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
+        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""",
+                       (json.dumps(enabled_features), chat_id))
         conn.commit()
         conn.close()
-
-
-class Config:
-    _conf = json.loads(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json'), 'r').read())
-
-    LOGIN = str(_conf['login'])
-    PASSWORD = str(_conf['password'])
-    APP_ID = int(_conf['app_id'])
-    INSTALLED_FEATURES = list(_conf['installed_features'])
 
 
 if __name__ == '__main__':

@@ -47,7 +47,7 @@ class Bot:
 
             except VkAPIError as api_err:
                 print(api_err)
-                # if api_err.code ==
+                # if api_err.code == TODO: Proper handling of VK API errors
 
     def get_long_poll_server(self):
         lps = self.vk_api.messages.getLongPollServer(need_pts=0, lp_version=3)

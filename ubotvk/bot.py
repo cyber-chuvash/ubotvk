@@ -16,7 +16,7 @@ class Config:
     LOGIN = str(_conf['login'])
     PASSWORD = str(_conf['password'])
     APP_ID = int(_conf['app_id'])
-    INSTALLED_FEATURES = list(_conf['installed_features'])
+    INSTALLED_FEATURES = tuple(_conf['installed_features'])
 
 
 class Bot:
@@ -30,7 +30,7 @@ class Bot:
     def __init__(self):
         self.vk_api = vk_requests.create_api(login=Config.LOGIN, password=Config.PASSWORD,
                                              app_id=Config.APP_ID, api_version='5.80', scope='messages,offline')
-        self.db = Database('conf.sqlite')
+        self.db = Database('bot_db.sqlite3')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
 
         self.features = self.import_features()

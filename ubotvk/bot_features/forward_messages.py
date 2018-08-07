@@ -2,7 +2,7 @@
 RECEIVER_ID = 212771532
 
 
-def __init__(vk_api, chats):
+def __init__(vk_api):
     return ForwardMessages(vk_api)
 
 

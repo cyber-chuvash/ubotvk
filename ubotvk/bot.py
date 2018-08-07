@@ -1,22 +1,14 @@
 #!/usr/bin/env python
 
 from importlib import import_module
-import sqlite3
-import json
-import os
 
 import requests
 import vk_requests
 from vk_requests.exceptions import VkAPIError
 
-
-class Config:
-    _conf = json.loads(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json'), 'r').read())
-
-    LOGIN = str(_conf['login'])
-    PASSWORD = str(_conf['password'])
-    APP_ID = int(_conf['app_id'])
-    INSTALLED_FEATURES = tuple(_conf['installed_features'])
+from ubotvk import utils
+from ubotvk.database import Database
+from ubotvk.config import Config
 
 
 class Bot:
@@ -30,24 +22,22 @@ class Bot:
     def __init__(self):
         self.vk_api = vk_requests.create_api(login=Config.LOGIN, password=Config.PASSWORD,
                                              app_id=Config.APP_ID, api_version='5.80', scope='messages,offline')
+        self.vk_id = self.vk_api.users.get()[0]['id']
+        print(self.vk_id)
+
         self.db = Database('bot_db.sqlite3')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
+        self._chats = self.db.get_chats()
 
         self.features = self.import_features()
 
         self.key, self.server, self.ts = self.get_long_poll_server()
 
         while True:
-            try:
-                response = self.long_poll(self.server, self.key, self.ts)
-                self.ts = response['ts']
-
-                for update in response['updates']:
-                    self.handle_update(update)
-
-            except VkAPIError as api_err:
-                print(api_err)
-                # if api_err.code == TODO: Proper handling of VK API errors
+            response = self.long_poll(self.server, self.key, self.ts)
+            self.ts = response['ts']
+            for update in response['updates']:
+                self.handle_update(update)
 
     def get_long_poll_server(self):
         lps = self.vk_api.messages.getLongPollServer(need_pts=0, lp_version=3)
@@ -82,105 +72,75 @@ class Bot:
             raise Exception
 
     def handle_update(self, update):
-        for feature in self.features:
-            if update[0] in feature.triggered_by:
-                feature(update)
+        self.check_for_commands(update)
 
-    def import_features(self) -> list:
+        for feature in self.features.keys():
+            try:
+                if update[0] in self.features[feature].triggered_by:
+                    if int(update[3] - 2e9) in self.dict_feature_chats[feature]:
+                        self.features[feature](update)
+
+            except VkAPIError as api_err:
+                print(api_err)
+                # if api_err.code == TODO: Proper handling of VK API errors
+
+    def import_features(self) -> dict:
         """
         imports and initialises features listed in "installed_features" from config.json
-        :return: list of feature objects
+        :return: dict(keys: strings from Config.INSTALLED_FEATURES, values: feature objects)
         """
-        features = []
+        features = {}
         for feature in Config.INSTALLED_FEATURES:
-            features.append(import_module('bot_features.'+feature).__init__(self.vk_api,
-                                                                            self.dict_feature_chats[feature]))
+            features[feature] = (import_module('bot_features.' + feature).__init__(self.vk_api))
         return features
 
+    def check_for_commands(self, update):
+        if update[0] == 4 and (update[2] & 2) == 0:
+            if int(update[3] - 2e9) not in self._chats:
+                self.new_chat(int(update[3] - 2e9))
 
-class Database:
-    def __init__(self, db_file):
-        self._db_file = db_file
-        self._create_table_if_not_exists()
+            if update[5].strip()[:len(str(self.vk_id))+4] == '[id{}|'.format(self.vk_id):
+                command = utils.command_in_string(update[5].strip(), ['add', 'remove'])
+                if command:
+                    self.handle_command(command, int(update[3] - 2e9))
 
-    def _create_table_if_not_exists(self):
-        conn = sqlite3.connect(self._db_file)
-        cursor = conn.cursor()
-        cursor.execute("""CREATE TABLE IF NOT EXISTS features (chat_id integer, enabled_features text)""")
-        conn.commit()
-        conn.close()
+    def handle_command(self, command, chat_id):
+        if command[0] == 'add':
+            self.command_add(command[1:], chat_id)
 
-    def get_feature_chats_dict(self, installed_features=Config.INSTALLED_FEATURES) -> dict:
-        conn = sqlite3.connect(self._db_file)
-        cursor = conn.cursor()
-        cursor.execute("""SELECT chat_id, enabled_features FROM features""")
-        features = cursor.fetchall()
+        elif command[0] == 'remove':
+            self.command_remove(command[1:], chat_id)
 
-        features_dict = {}
-        for item in features:
-            features_dict[item[0]] = json.loads(item[1])
+    def command_add(self, command, chat_id):
+        feature = command[0]
+        if feature in Config.INSTALLED_FEATURES:
+            self.db.add_feature(chat_id, feature)
+            self.dict_feature_chats[feature].append(chat_id)
+            print('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
 
-        feature_chats_dict = {}
-        for feature in installed_features:
-            feature_chats_dict[feature] = [chat for chat in features_dict.keys()
-                                           if feature in features_dict[chat]]
+    def command_remove(self, command, chat_id):
+        feature = command[0]
+        if feature in Config.INSTALLED_FEATURES and \
+                feature in self.dict_feature_chats.keys():
+            self.db.remove_feature(chat_id, feature)
+            self.dict_feature_chats[feature].remove(chat_id)
+            print('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
 
-        return feature_chats_dict
+    def new_chat(self, chat_id):
+        self.db.add_chat(chat_id)
+        self._chats.append(chat_id)
 
-    def add_chat(self, chat_id: int):
-        assert isinstance(chat_id, int)
+        for feature in Config.DEFAULT_FEATURES:
+            self.dict_feature_chats[feature].append(chat_id)
 
-        conn = sqlite3.connect(self._db_file)
-        cursor = conn.cursor()
-        cursor.execute("""SELECT chat_id FROM features WHERE chat_id=?""", (chat_id,))
-        sel = cursor.fetchone()
-        if sel is None or chat_id not in sel[0]:
-            cursor.execute("""INSERT INTO features (chat_id, enabled_features) VALUES (?, ?)""",
-                           (chat_id, json.dumps([])))
-            conn.commit()
-        conn.close()
+        for feature in self.features.keys():
+            try:
+                self.features[feature].new_chat(chat_id)
+            except AttributeError:
+                print('{} has no new_chat method'.format(feature))
 
-    def add_feature(self, chat_id: int, feature: str):
-        assert isinstance(chat_id, int)
-        assert isinstance(feature, str)
-
-        conn = sqlite3.connect(self._db_file)
-        cursor = conn.cursor()
-        cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
-        enabled_features = cursor.fetchone()
-        if enabled_features[0]:
-            features = json.loads(enabled_features[0])
-            if feature not in features:
-                features.append(feature)
-            else:
-                conn.close()
-                return
-        else:
-            features = [feature]
-
-        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""", (json.dumps(features), chat_id))
-        conn.commit()
-        conn.close()
-
-    def remove_feature(self, chat_id: int, feature: str):
-        assert isinstance(chat_id, int)
-        assert isinstance(feature, str)
-
-        conn = sqlite3.connect(self._db_file)
-        cursor = conn.cursor()
-        cursor.execute("""SELECT enabled_features FROM features WHERE chat_id=?""", (chat_id,))
-        enabled_features = json.loads(cursor.fetchone()[0])
-        if enabled_features and feature in enabled_features:
-            enabled_features.remove(feature)
-        else:
-            raise AttributeError
-
-        cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""",
-                       (json.dumps(enabled_features), chat_id))
-        conn.commit()
-        conn.close()
+        print('Added new chat {c}'.format(c=str(chat_id)))
 
 
 if __name__ == '__main__':
-
     bot = Bot()

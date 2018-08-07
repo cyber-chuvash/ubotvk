@@ -5,21 +5,19 @@ import os
 DATABASE_FILE = os.path.join(os.path.dirname(__file__), 'pidors.sqlite3')
 
 
-class Pidors(object):
-    def __init__(self, vk_api, list_of_chats):
+class Pidors:
+    def __init__(self, vk_api):
         self._vk = vk_api
 
         self._chats_database = Database()
-        self.enabled_in_chats = list_of_chats
 
         # Long Poll codes that should trigger this feature. More info: https://vk.com/dev/using_longpoll
         self.triggered_by = [4]
 
     def __call__(self, update):
         if (update[2] & 2) == 0:  # Check if message is inbox
-            if int(update[3] - 2e9) in self.enabled_in_chats:
-                if update[5] in ['/toppidor', '!toppidor']:     # TODO: cmd parsing, smart-ass way to interpret them
-                    self.top_pidor(int(update[3]-2e9))
+            if update[5] in ['/toppidor', '!toppidor']:     # TODO: cmd parsing, smart-ass way to interpret them
+                self.top_pidor(int(update[3]-2e9))
 
     def top_pidor(self, chat_id):
         pidors = self._chats_database.get_pidors(chat_id)
@@ -38,7 +36,6 @@ class Pidors(object):
         self._vk.messages.send(peer_id=int(chat_id+2e9), message=response)
 
     def new_chat(self, chat_id):
-        self.enabled_in_chats.append(chat_id)
         members = self._vk.messages.getConversationMembers(peer_id=int(chat_id + 2e9))['profiles']
         for member in members:
             self._chats_database.add_member(chat_id, member)

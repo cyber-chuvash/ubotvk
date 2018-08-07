@@ -32,6 +32,7 @@ class TestDatabase(unittest.TestCase):
         self.assertTrue('features' in select)
 
     def test_add_chat(self):
+        # TODO test for chats that are already in db
         # Test normal conditions: chat_id:int
         self.db.add_chat(self.test_id + 1)
         conn = sqlite3.connect(self.db_file)
@@ -152,6 +153,24 @@ class TestDatabase(unittest.TestCase):
                          self.test_feature+'1': [self.test_id, self.test_id+2],
                          self.test_feature+'2': [self.test_id, self.test_id+1],
                          'some_other': []})
+
+    def test_get_chats(self):
+        self.db.add_chat(self.test_id + 1)
+        self.db.add_chat(self.test_id + 2)
+        self.db.add_chat(self.test_id + 3)
+
+        self.db.add_feature(self.test_id, self.test_feature)
+        self.db.add_feature(self.test_id, self.test_feature + '1')
+        self.db.add_feature(self.test_id, self.test_feature + '2')
+        self.db.add_feature(self.test_id + 1, self.test_feature)
+        self.db.add_feature(self.test_id + 1, self.test_feature + '2')
+        self.db.add_feature(self.test_id + 2, self.test_feature)
+        self.db.add_feature(self.test_id + 2, self.test_feature + '1')
+
+        chats = self.db.get_chats()
+        print(chats)
+        self.assertTrue(len(chats) == 4)
+        self.assertListEqual(chats, [self.test_id, self.test_id + 1, self.test_id + 2, self.test_id + 3])
 
 
 if __name__ == '__main__':

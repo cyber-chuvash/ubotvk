@@ -1,6 +1,7 @@
 import sqlite3
 import os
 
+from ubotvk import utils
 
 DATABASE_FILE = os.path.join(os.path.dirname(__file__), 'pidors.sqlite3')
 
@@ -16,7 +17,8 @@ class Pidors:
 
     def __call__(self, update):
         if (update[2] & 2) == 0:  # Check if message is inbox
-            if update[5] in ['/toppidor', '!toppidor']:     # TODO: cmd parsing, smart-ass way to interpret them
+            command = utils.command_in_string(update[5], ['toppidor', 'топпидор', 'пидор', 'pidor'])
+            if command and command[0] in ['toppidor', 'топпидор']:
                 self.top_pidor(int(update[3]-2e9))
 
     def top_pidor(self, chat_id):
@@ -36,15 +38,18 @@ class Pidors:
         self._vk.messages.send(peer_id=int(chat_id+2e9), message=response)
 
     def new_chat(self, chat_id):
-        members = self._vk.messages.getConversationMembers(peer_id=int(chat_id + 2e9))['profiles']
-        for member in members:
-            self._chats_database.add_member(chat_id, member)
+        if chat_id not in self._chats_database.chats:
+            members = self._vk.messages.getConversationMembers(peer_id=int(chat_id + 2e9))['profiles']
+            for member in members:
+                self._chats_database.add_member(chat_id, member)
+            self._chats_database.chats.append(chat_id)
 
 
 class Database:
     def __init__(self, db_file=DATABASE_FILE):
         self.db_file = db_file
         self.create_if_not_exists()
+        self.chats = self.get_chats()
 
     def create_if_not_exists(self):
         conn = sqlite3.connect(self.db_file)
@@ -71,3 +76,16 @@ class Database:
         pidors = cursor.fetchall()
         conn.close()
         return pidors
+
+    def get_chats(self):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT chat_id FROM Chats""")
+        chats = cursor.fetchall()
+        conn.close()
+        return list(set([chat[0] for chat in chats]))
+
+
+if __name__ == '__main__':
+    db = Database()
+    print(db.get_chats())

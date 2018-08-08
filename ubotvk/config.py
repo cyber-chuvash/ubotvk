@@ -8,6 +8,8 @@ class Config:
     LOGIN = str(_conf['login'])
     PASSWORD = str(_conf['password'])
     APP_ID = int(_conf['app_id'])
+
     INSTALLED_FEATURES = tuple(_conf['installed_features'])
     DEFAULT_FEATURES = tuple(_conf['on_by_default'])
 
+    LOG_DIR = str(_conf['log_dir'])

@@ -1,6 +1,7 @@
 .idea
 config.json
 *.sqlite3
+log/
 
 
 # Byte-compiled / optimized / DLL files

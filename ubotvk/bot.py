@@ -2,6 +2,7 @@
 
 from importlib import import_module
 import logging
+import pathlib
 
 import requests
 import vk_requests
@@ -12,7 +13,9 @@ from ubotvk.database import Database
 from ubotvk.config import Config
 
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s', level=logging.INFO)
+pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s', level=logging.INFO,
+                    filename=Config.LOG_DIR+'bot', filemode='a')
 
 
 class Bot:

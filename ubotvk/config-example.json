@@ -4,5 +4,7 @@
   "app_id": 6016504,
 
   "installed_features": ["forward_messages"],
-  "on_by_default": ["forward_messages"]
+  "on_by_default": ["forward_messages"],
+
+  "log_dir": "log/"
 }

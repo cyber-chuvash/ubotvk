@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from importlib import import_module
+import logging
 
 import requests
 import vk_requests
@@ -9,6 +10,9 @@ from vk_requests.exceptions import VkAPIError
 from ubotvk import utils
 from ubotvk.database import Database
 from ubotvk.config import Config
+
+
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s', level=logging.INFO)
 
 
 class Bot:
@@ -20,14 +24,19 @@ class Bot:
     """
 
     def __init__(self):
+        print('Bot instance was initialized.')
         self.vk_api = vk_requests.create_api(login=Config.LOGIN, password=Config.PASSWORD,
                                              app_id=Config.APP_ID, api_version='5.80', scope='messages,offline')
         self.vk_id = self.vk_api.users.get()[0]['id']
-        print(self.vk_id)
+        logging.info('Created VK API session. Bot`s ID = {}'.format(self.vk_id))
+        print('Created VK API session. Bot`s ID = {}'.format(self.vk_id))
 
         self.db = Database('bot_db.sqlite3')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
         self._chats = self.db.get_chats()
+        print('Database loaded.')
+        logging.debug('Database loaded. chats = {chats}; dict_feature_chats = {d_f_c}'.
+                      format(chats=self._chats, d_f_c=self.dict_feature_chats))
 
         self.features = self.import_features()
 
@@ -64,14 +73,18 @@ class Bot:
 
         elif res['failed'] == 1:
             self.ts = res['ts']
+            logging.warning('VK returned lp response with "failed" == 1, updated self.ts value')
         elif res['failed'] in [2, 3]:
             self.key, self.server, self.ts = self.get_long_poll_server()
+            logging.warning('VK returned lp response with "failed" == 2, updated Long Poll server')
         elif res['failed'] == 4:
             raise ValueError('Wrong Long Poll version')
         else:
-            raise Exception
+            raise Exception('VK returned lp response with unexpected "failed" value. Response: {}'.format(res))
 
     def handle_update(self, update):
+        logging.info('Got new update: {}'.format(update))
+
         self.check_for_commands(update)
 
         for feature in self.features.keys():
@@ -79,9 +92,10 @@ class Bot:
                 if update[0] in self.features[feature].triggered_by:
                     if int(update[3] - 2e9) in self.dict_feature_chats[feature]:
                         self.features[feature](update)
+                        logging.debug('Called {f} with {u}'.format(f=feature, u=update))
 
             except VkAPIError as api_err:
-                print(api_err)
+                logging.error('VkAPIError occurred, was caught, but not handled.', exc_info=True)
                 # if api_err.code == TODO: Proper handling of VK API errors
 
     def import_features(self) -> dict:
@@ -92,6 +106,8 @@ class Bot:
         features = {}
         for feature in Config.INSTALLED_FEATURES:
             features[feature] = (import_module('bot_features.' + feature).__init__(self.vk_api))
+            logging.debug('Initialized {}'.format(feature))
+        logging.info('Initialized all {} features'.format(len(features.keys())))
         return features
 
     def check_for_commands(self, update):
@@ -113,18 +129,28 @@ class Bot:
 
     def command_add(self, command, chat_id):
         feature = command[0]
-        if feature in Config.INSTALLED_FEATURES:
+        if feature in Config.INSTALLED_FEATURES and chat_id not in self.dict_feature_chats[feature]:
             self.db.add_feature(chat_id, feature)
             self.dict_feature_chats[feature].append(chat_id)
-            print('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
+            self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Включил {} для этого чата'.format(feature))
+            logging.info('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
+
+        else:
+            self.vk_api.messages.send(peer_id=int(chat_id+2e9),
+                                      message='Нет такой функции или она уже включена: "{}"'.format(feature))
+            # TODO отправлять список доступных фич
 
     def command_remove(self, command, chat_id):
         feature = command[0]
-        if feature in Config.INSTALLED_FEATURES and \
-                feature in self.dict_feature_chats.keys():
+        if feature in Config.INSTALLED_FEATURES and chat_id in self.dict_feature_chats[feature]:
             self.db.remove_feature(chat_id, feature)
             self.dict_feature_chats[feature].remove(chat_id)
-            print('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
+            self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Отключил {} для этого чата'.format(feature))
+            logging.info('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
+        else:
+            self.vk_api.messages.send(peer_id=int(chat_id+2e9),
+                                      message='Нет такой функции или она уже отключена: "{}"'.format(feature))
+            # TODO отправлять список включенных фич
 
     def new_chat(self, chat_id):
         self.db.add_chat(chat_id)
@@ -136,10 +162,11 @@ class Bot:
         for feature in self.features.keys():
             try:
                 self.features[feature].new_chat(chat_id)
+                logging.debug('{}.new_chat() was called'.format(feature))
             except AttributeError:
-                print('{} has no new_chat method'.format(feature))
+                logging.debug('{} has no new_chat method'.format(feature))
 
-        print('Added new chat {c}'.format(c=str(chat_id)))
+        logging.info('Added new chat {c}'.format(c=str(chat_id)))
 
 
 if __name__ == '__main__':

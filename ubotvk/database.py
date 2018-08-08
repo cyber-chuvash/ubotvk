@@ -51,7 +51,9 @@ class Database:
             cursor.execute("""INSERT INTO features (chat_id, enabled_features) VALUES (?, ?)""",
                            (chat_id, json.dumps([])))
             conn.commit()
-        conn.close()
+            conn.close()
+        else:
+            raise ValueError('Chat "{}" is already in the database'.format(chat_id))
 
     def add_feature(self, chat_id: int, feature: str):
         assert isinstance(chat_id, int)
@@ -67,7 +69,7 @@ class Database:
                 features.append(feature)
             else:
                 conn.close()
-                return
+                raise ValueError('Feature "{}" is already in the database'.format(feature))
         else:
             features = [feature]
 
@@ -86,7 +88,7 @@ class Database:
         if enabled_features and feature in enabled_features:
             enabled_features.remove(feature)
         else:
-            raise AttributeError
+            raise ValueError('Feature "{}" is not in the database'.format(feature))
 
         cursor.execute("""UPDATE features SET enabled_features=? WHERE chat_id=?""",
                        (json.dumps(enabled_features), chat_id))

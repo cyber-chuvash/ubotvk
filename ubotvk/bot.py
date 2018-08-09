@@ -14,8 +14,12 @@ from ubotvk.config import Config
 
 
 pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s', level=logging.INFO,
-                    filename=Config.LOG_DIR+'bot', filemode='a')
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
+    level=logging.INFO,
+    filename=Config.LOG_DIR+'bot',
+    filemode='a'
+)
 
 
 class Bot:
@@ -71,7 +75,7 @@ class Bot:
         request = requests.get('https://{server}?'.format(server=server), params=payload)
         res = request.json()
 
-        if 'failed' not in res.keys():
+        if 'failed' not in res:
             return res
 
         elif res['failed'] == 1:
@@ -90,7 +94,9 @@ class Bot:
 
         self.check_for_commands(update)
 
-        for feature in self.features.keys():
+        self.check_for_service_message(update)
+
+        for feature in self.features:
             try:
                 if update[0] in self.features[feature].triggered_by:
                     if int(update[3] - 2e9) in self.dict_feature_chats[feature]:
@@ -110,7 +116,7 @@ class Bot:
         for feature in Config.INSTALLED_FEATURES:
             features[feature] = (import_module('bot_features.' + feature).__init__(self.vk_api))
             logging.debug('Initialized {}'.format(feature))
-        logging.info('Initialized all {} features'.format(len(features.keys())))
+        logging.info('Initialized all {} features'.format(len(features)))
         return features
 
     def check_for_commands(self, update):
@@ -135,6 +141,12 @@ class Bot:
         if feature in Config.INSTALLED_FEATURES and chat_id not in self.dict_feature_chats[feature]:
             self.db.add_feature(chat_id, feature)
             self.dict_feature_chats[feature].append(chat_id)
+            try:
+                self.features[feature].new_chat(chat_id)
+                logging.debug('{}.new_chat() was called'.format(feature))
+            except AttributeError:
+                logging.debug('{} has no new_chat method'.format(feature))
+
             self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Включил {} для этого чата'.format(feature))
             logging.info('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
 
@@ -148,6 +160,12 @@ class Bot:
         if feature in Config.INSTALLED_FEATURES and chat_id in self.dict_feature_chats[feature]:
             self.db.remove_feature(chat_id, feature)
             self.dict_feature_chats[feature].remove(chat_id)
+            try:
+                self.features[feature].remove_chat(chat_id)
+                logging.debug('{}.remove_chat() was called'.format(feature))
+            except AttributeError:
+                logging.debug('{} has no remove_chat method'.format(feature))
+
             self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Отключил {} для этого чата'.format(feature))
             logging.info('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
         else:
@@ -161,15 +179,39 @@ class Bot:
 
         for feature in Config.DEFAULT_FEATURES:
             self.dict_feature_chats[feature].append(chat_id)
+        logging.info('Added new chat {}'.format(chat_id))
 
-        for feature in self.features.keys():
+    def check_for_service_message(self, update):
+        try:
+            if update[0] == 4 and 'source_act' in update[6]:
+                if update[6]['source_act'] == 'chat_invite_user':
+                    logging.info('User was invited in update {}'.format(update))
+                    self.new_member(int(update[3]-2e9), update[6]['source_mid'])
+
+                if update[6]['source_act'] == 'chat_kick_user':
+                    logging.info('User was kicked in update {}'.format(update))
+                    self.remove_member(int(update[3]-2e9), update[6]['source_mid'])
+
+        except IndexError as er:
+            logging.warning('VK returned Long Poll update with code 4, but update[6] raised IndexError: {}'.format(er))
+
+    def new_member(self, chat_id, user_id):
+        for feature in Config.INSTALLED_FEATURES:
             try:
-                self.features[feature].new_chat(chat_id)
-                logging.debug('{}.new_chat() was called'.format(feature))
-            except AttributeError:
-                logging.debug('{} has no new_chat method'.format(feature))
+                self.features[feature].new_member(chat_id, user_id)
+                logging.debug('Called new_member method of {}'.format(feature))
 
-        logging.info('Added new chat {c}'.format(c=str(chat_id)))
+            except AttributeError:
+                logging.debug('{} has no new_member method'.format(feature))
+
+    def remove_member(self, chat_id, user_id):
+        for feature in Config.INSTALLED_FEATURES:
+            try:
+                self.features[feature].remove_member(chat_id, user_id)
+                logging.debug('Called remove_member method of {}'.format(feature))
+
+            except AttributeError:
+                logging.debug('{} has no remove_member method'.format(feature))
 
 
 if __name__ == '__main__':

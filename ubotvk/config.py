@@ -13,3 +13,4 @@ class Config:
     DEFAULT_FEATURES = tuple(_conf['on_by_default'])
 
     LOG_DIR = str(_conf['log_dir'])
+    MAINTAINER_VK_ID = int(_conf['maintainer_vk_id'])

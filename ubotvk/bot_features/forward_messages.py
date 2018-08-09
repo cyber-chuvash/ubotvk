@@ -1,5 +1,5 @@
 
-RECEIVER_ID = 212771532
+from ubotvk.config import Config
 
 
 def __init__(vk_api):
@@ -15,4 +15,4 @@ class ForwardMessages(object):
 
     def __call__(self, update):
         if (update[2] & 2) == 0:    # Check if message is inbox
-            self.vk.messages.send(peer_id=RECEIVER_ID, message=str(update))
+            self.vk.messages.send(peer_id=Config.MAINTAINER_VK_ID, message=str(update))

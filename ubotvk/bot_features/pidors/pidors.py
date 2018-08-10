@@ -28,9 +28,13 @@ class Pidors:
     def __call__(self, update):
         if (update[2] & 2) == 0:  # Check if message is inbox
             command = utils.command_in_string(update[5], ['toppidor', 'топпидор', 'njggbljh', 'ещззшвщк',
-                                                          'пидор', 'pidor', 'зшвщк', 'njggbljh'])
-            if command and command[0] in ['toppidor', 'топпидор', 'njggbljh', 'ещззшвщк']:
-                self.top_pidor(int(update[3]-2e9))
+                                                          'пидор', 'pidor', 'зшвщк', 'gbljh'])
+            if command:
+                if command[0] in ['toppidor', 'топпидор', 'njggbljh', 'ещззшвщк']:
+                    self.top_pidor(int(update[3]-2e9))
+
+                if command[0] in ['пидор', 'pidor', 'зшвщк', 'gbljh']:
+                    self.pidor(int(update[3]-2e9))
 
     def top_pidor(self, chat_id):
         pidors = self._chats_database.get_pidors(chat_id)
@@ -57,6 +61,18 @@ class Pidors:
                             'Calling Pidors.new_chat method, the Database will be reset'.format(chat_id))
             self.new_chat(chat_id)
 
+    def pidor(self, chat_id):
+        pidor_id = self._chats_database.get_last_pidor(chat_id)
+        if pidor_id is not None:
+            count = self._chats_database.get_users_pidor_count(chat_id, pidor_id)
+            user = self._vk.users.get(user_ids=pidor_id)[0]
+            response = """Сегодня пидором в {c} раз был избран {f_name} {l_name}."""\
+                       .format(c=count, f_name=user['first_name'], l_name=user['last_name'])
+        else:
+            response = "В этом чате еще никто не был избран пидором"
+
+        self._vk.messages.send(peer_id=int(chat_id+2e9), message=response)
+
     def pidors_job(self):   # TODO use VK execute
         chats = self._chats_database.chats
         start_time, end_time = 0, 1
@@ -73,7 +89,9 @@ class Pidors:
         members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9))['profiles']
         pidor = random.choice(members)
         self._chats_database.increment_pidor_count(chat, pidor['id'])
-        message = """Пидор сегодняшнего дня: {} {}. Поздравляем!""".format(pidor['first_name'], pidor['last_name']) # TODO push
+        self._chats_database.set_last_pidor(chat, pidor['id'])
+        message = """Пидор сегодняшнего дня: [id{id}|{f_name} {l_name}]. Поздравляем!"""\
+                  .format(id=pidor['id'], f_name=pidor['first_name'], l_name=pidor['last_name'])
         self._vk.messages.send(peer_id=int(2e9+chat), message=message)
 
     def new_chat(self, chat_id):
@@ -96,7 +114,7 @@ class Pidors:
             self._chats_database.member_came_back(chat_id, user_id)
             logging.debug('Member {} came back to chat {}'.format(user_id, chat_id))
         else:
-            member = self._vk.users.get(user_ids=user_id)
+            member = self._vk.users.get(user_ids=user_id)[0]
             self._chats_database.add_member(chat_id, member)
             logging.debug('New member {} in chat {}'.format(user_id, chat_id))
 
@@ -115,7 +133,8 @@ class Database:
         cursor = conn.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS Pidors 
                           (chat_id, user_id, user_name, user_pidor_count, user_is_in_chat)""")
-        cursor.execute("""CREATE TABLE IF NOT EXISTS Chats (chat_id integer, feature_is_on integer)""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS Chats 
+                      (chat_id integer, feature_is_on integer, last_pidor_id integer)""")
         conn.commit()
         conn.close()
 
@@ -159,6 +178,33 @@ class Database:
         pidors = cursor.fetchall()
         conn.close()
         return pidors
+
+    def get_users_pidor_count(self, chat_id, user_id):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT user_pidor_count FROM Pidors WHERE Pidors.chat_id=? AND Pidors.user_id=?""",
+                       (chat_id, user_id))
+        pidor_count = cursor.fetchone()
+        conn.close()
+        logging.info(pidor_count)
+        return pidor_count[0] if pidor_count is not None else None
+
+    def get_last_pidor(self, chat_id):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""SELECT last_pidor_id FROM Chats WHERE chat_id=?""", (chat_id,))
+        pidor = cursor.fetchone()
+        conn.close()
+        logging.info(pidor)
+        return pidor[0]
+
+    def set_last_pidor(self, chat_id, new_pidor_id):
+        conn = sqlite3.connect(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute("""UPDATE Chats SET last_pidor_id=? WHERE chat_id=?""",
+                       (new_pidor_id, chat_id))
+        conn.commit()
+        conn.close()
 
     def increment_pidor_count(self, chat_id, user_id):
         conn = sqlite3.connect(self.db_file)

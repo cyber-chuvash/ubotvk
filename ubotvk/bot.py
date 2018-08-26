@@ -16,7 +16,7 @@ from ubotvk.config import Config
 pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-    level=logging.INFO,
+    level=logging.WARNING,
     filename=Config.LOG_DIR+'bot',
     filemode='a'
 )

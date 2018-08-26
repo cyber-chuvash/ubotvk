@@ -3,6 +3,7 @@ COPY Pipfile.lock /Pipfile.lock
 COPY Pipfile /Pipfile
 RUN pip install pipenv
 RUN pipenv install --system
-COPY ubotvk/ /app
+COPY run.py /app/
+COPY ubotvk/ /app/
 WORKDIR /app
-CMD ["python3", "bot.py"]
+CMD ["python3", "run.py"]

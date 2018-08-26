@@ -38,7 +38,7 @@ class Bot:
         logging.info('Created VK API session. Bot`s ID = {}'.format(self.vk_id))
         print('Created VK API session. Bot`s ID = {}'.format(self.vk_id))
 
-        self.db = Database('bot_db.sqlite3')
+        self.db = Database('data/bot_db.sqlite3')
         self.dict_feature_chats = self.db.get_feature_chats_dict()
         self._chats = self.db.get_chats()
         print('Database loaded.')
@@ -114,7 +114,7 @@ class Bot:
         """
         features = {}
         for feature in Config.INSTALLED_FEATURES:
-            features[feature] = (import_module('bot_features.' + feature).__init__(self.vk_api))
+            features[feature] = (import_module('ubotvk.bot_features.' + feature).__init__(self.vk_api))
             logging.debug('Initialized {}'.format(feature))
         logging.info('Initialized all {} features'.format(len(features)))
         return features
@@ -213,6 +213,3 @@ class Bot:
             except AttributeError:
                 logging.debug('{} has no remove_member method'.format(feature))
 
-
-if __name__ == '__main__':
-    bot = Bot()

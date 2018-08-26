@@ -2,3 +2,4 @@
 **/*.sqlite*
 **/config-example.json
 **/tests/
+**/__pycache__/

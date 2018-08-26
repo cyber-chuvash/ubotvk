@@ -2,7 +2,7 @@
 config.json
 *.sqlite3
 log/
-
+*.tar
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

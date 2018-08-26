@@ -4,6 +4,6 @@ COPY Pipfile /Pipfile
 RUN pip install pipenv
 RUN pipenv install --system
 COPY run.py /app/
-COPY ubotvk/ /app/
+COPY ubotvk/ /app/ubotvk/
 WORKDIR /app
 CMD ["python3", "run.py"]

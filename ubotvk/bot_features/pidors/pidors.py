@@ -1,5 +1,4 @@
 import sqlite3
-import os
 import random
 import time
 import logging
@@ -10,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from ubotvk import utils
 from ubotvk.config import Config
 
-DATABASE_FILE = os.path.join(os.path.dirname(__file__), 'pidors.sqlite3')
+DATABASE_FILE = 'data/pidors.sqlite3'
 
 
 class Pidors:
@@ -19,7 +18,7 @@ class Pidors:
         self._chats_database = Database()
 
         scheduler = BackgroundScheduler(timezone=timezone('Europe/Moscow'))
-        scheduler.add_job(self.pidors_job, 'cron', minute='*')
+        scheduler.add_job(self.pidors_job, 'cron', hour='8')
         scheduler.start()
 
         # Long Poll codes that should trigger this feature. More info: https://vk.com/dev/using_longpoll
@@ -57,8 +56,9 @@ class Pidors:
                                                                      'долбоеб и попробуйте еще раз.'
                                                                      .format(Config.MAINTAINER_VK_ID))
 
-            logging.warning('Pidors.db is empty for chat {}, but bot.db says that this feature is on. '
-                            'Calling Pidors.new_chat method, the Database will be reset'.format(chat_id))
+            logging.warning('{db} is empty for chat {c}, but bot.db says that this feature is on. '
+                            'Calling Pidors.new_chat method, the Database will be reset'.format(db=DATABASE_FILE,
+                                                                                                c=chat_id))
             self.new_chat(chat_id)
 
     def pidor(self, chat_id):

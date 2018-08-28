@@ -13,13 +13,19 @@ from ubotvk.database import Database
 from ubotvk.config import Config
 
 
-pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-    level=logging.WARNING,
-    filename=Config.LOG_DIR+'bot',
-    filemode='a'
-)
+if Config.LOG_DIR:  # Write to file if specified
+    pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
+        level=logging.WARNING,
+        filename=Config.LOG_DIR+'bot',
+        filemode='a'
+    )
+else:   # Write to stderr if not
+    logging.basicConfig(
+        format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
+        level=logging.WARNING,
+    )
 
 
 class Bot:
@@ -111,10 +117,17 @@ class Bot:
 
     def import_features(self) -> dict:
         """
-        imports and initialises features listed in "installed_features" from config.json
+        imports and initialises features listed in "installed_features" from config.json or os.environ
+        if none specified, imports all modules from ubotvk/bot_features/
         :return: dict(keys: strings from Config.INSTALLED_FEATURES, values: feature objects)
         """
         features = {}
+        if not Config.INSTALLED_FEATURES:
+            import pkgutil
+            import os
+            Config.INSTALLED_FEATURES = list(
+                module for _, module, _ in pkgutil.iter_modules([os.path.dirname(__file__) + '/bot_features']))
+
         for feature in Config.INSTALLED_FEATURES:
             features[feature] = (import_module('ubotvk.bot_features.' + feature).__init__(self.vk_api))
             logging.debug('Initialized {}'.format(feature))

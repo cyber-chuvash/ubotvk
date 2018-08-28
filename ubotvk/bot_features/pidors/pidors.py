@@ -174,7 +174,8 @@ class Database:
     def get_pidors(self, chat_id):
         conn = sqlite3.connect(self.db_file)
         cursor = conn.cursor()
-        cursor.execute("""SELECT * FROM Pidors WHERE Pidors.chat_id=? AND Pidors.user_is_in_chat=1""", (chat_id,))
+        cursor.execute("""SELECT * FROM Pidors WHERE Pidors.chat_id=? AND Pidors.user_is_in_chat=1
+                          ORDER BY Pidors.user_pidor_count DESC""", (chat_id,))
         pidors = cursor.fetchall()
         conn.close()
         return pidors

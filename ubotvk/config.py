@@ -11,7 +11,7 @@ class Config:
         APP_ID = int(_conf.get('app_id', 6666569))
 
         INSTALLED_FEATURES = tuple(_conf['installed_features']) if _conf.get('installed_features', None) else None
-        DEFAULT_FEATURES = tuple(_conf['on_by_default']) if _conf.get('on_by_default', None) else None
+        DEFAULT_FEATURES = tuple(_conf['on_by_default']) if _conf.get('on_by_default', None) else []
 
         LOG_DIR = _conf.get('log_dir', None)
         LOG_LEVEL = _conf.get('log_level', 'WARNING')
@@ -28,6 +28,7 @@ class Config:
             tuple(os.environ['UBOTVK_DEF_FEAT'].split(',')) if os.environ.get('UBOTVK_DEF_FEAT', None) else []
 
         LOG_DIR = os.environ.get('UBOTVK_LOG_DIR', None)
+        LOG_LEVEL = os.environ.get('UBOTVK_LOG_LEVEL', 'WARNING')
         MAINTAINER_VK_ID = int(os.environ.get('UBOTVK_MAINTAINER_ID', 212771532))
 
 

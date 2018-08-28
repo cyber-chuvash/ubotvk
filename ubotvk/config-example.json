@@ -7,6 +7,6 @@
   "on_by_default": ["forward_messages"],
 
   "log_dir": "log/",
-    "log_level": "INFO",
+  "log_level": "INFO",
   "maintainer_vk_id": 212771532
 }

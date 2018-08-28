@@ -3,6 +3,7 @@ config.json
 *.sqlite3
 log/
 *.tar
+rundockerenv.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -13,18 +13,25 @@ from ubotvk.database import Database
 from ubotvk.config import Config
 
 
+log_levels = {'NOTSET': logging.NOTSET,
+              'DEBUG': logging.DEBUG,
+              'INFO': logging.INFO,
+              'WARNING': logging.WARNING,
+              'ERROR': logging.ERROR,
+              'CRITICAL': logging.CRITICAL}
+
 if Config.LOG_DIR:  # Write to file if specified
     pathlib.Path(Config.LOG_DIR).mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-        level=logging.WARNING,
-        filename=Config.LOG_DIR+'bot',
+        level=log_levels[Config.LOG_LEVEL],
+        filename=Config.LOG_DIR+'ubotvk.log',
         filemode='a'
     )
 else:   # Write to stderr if not
     logging.basicConfig(
         format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s',
-        level=logging.WARNING,
+        level=log_levels[Config.LOG_LEVEL],
     )
 
 

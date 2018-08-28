@@ -81,9 +81,11 @@ class Bot:
         elif res['failed'] == 1:
             self.ts = res['ts']
             logging.warning('VK returned lp response with "failed" == 1, updated self.ts value')
+            return self.long_poll(self.server, self.key, self.ts)
         elif res['failed'] in [2, 3]:
             self.key, self.server, self.ts = self.get_long_poll_server()
-            logging.warning('VK returned lp response with "failed" == 2, updated Long Poll server')
+            logging.warning(f'VK returned lp response with "failed" == {res["failed"]}, updated Long Poll server')
+            return self.long_poll(self.server, self.key, self.ts)
         elif res['failed'] == 4:
             raise ValueError('Wrong Long Poll version')
         else:
@@ -184,11 +186,11 @@ class Bot:
     def check_for_service_message(self, update):
         try:
             if update[0] == 4 and 'source_act' in update[6]:
-                if update[6]['source_act'] == 'chat_invite_user':
+                if update[6]['source_act'] == 'chat_invite_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was invited in update {}'.format(update))
                     self.new_member(int(update[3]-2e9), update[6]['source_mid'])
 
-                if update[6]['source_act'] == 'chat_kick_user':
+                if update[6]['source_act'] == 'chat_kick_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was kicked in update {}'.format(update))
                     self.remove_member(int(update[3]-2e9), update[6]['source_mid'])
 

@@ -58,10 +58,13 @@ class Bot:
         logging.debug('Database loaded. chats = {chats}; dict_feature_chats = {d_f_c}'.
                       format(chats=self._chats, d_f_c=self.dict_feature_chats))
 
+        self.logger = logging
+
         self.features = self.import_features()
 
         self.key, self.server, self.ts = self.get_long_poll_server()
 
+    def start_loop(self):
         while True:
             response = self.long_poll(self.server, self.key, self.ts)
             self.ts = response['ts']
@@ -93,11 +96,11 @@ class Bot:
 
         elif res['failed'] == 1:
             self.ts = res['ts']
-            logging.warning('VK returned lp response with "failed" == 1, updated self.ts value')
+            logging.info('VK returned lp response with "failed" == 1, updated self.ts value')
             return self.long_poll(self.server, self.key, self.ts)
         elif res['failed'] in [2, 3]:
             self.key, self.server, self.ts = self.get_long_poll_server()
-            logging.warning(f'VK returned lp response with "failed" == {res["failed"]}, updated Long Poll server')
+            logging.info(f'VK returned lp response with "failed" == {res["failed"]}, updated Long Poll server')
             return self.long_poll(self.server, self.key, self.ts)
         elif res['failed'] == 4:
             raise ValueError('Wrong Long Poll version')
@@ -234,4 +237,11 @@ class Bot:
 
             except AttributeError:
                 logging.debug('{} has no remove_member method'.format(feature))
+
+    def crash_handler(self, exc=None):
+        try:
+            self.vk_api.messages.send(peer_id=Config.MAINTAINER_VK_ID,
+                                      message=f"Bot crashed, check logs. Exception info:\n{exc}")
+        except Exception:
+            pass
 

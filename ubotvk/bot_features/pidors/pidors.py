@@ -10,6 +10,7 @@ from ubotvk import utils
 from ubotvk.config import Config
 
 DATABASE_FILE = 'data/pidors.sqlite3'
+TOP_EMOJI = {1: '🏳‍🌈️🔥', 2: '🍑🍌', 3: '👬💖', 4: '🌚🌝', 5: '🐔💞'}
 
 
 class Pidors:
@@ -38,15 +39,14 @@ class Pidors:
     def top_pidor(self, chat_id):
         pidors = self._chats_database.get_pidors(chat_id)
         if pidors:
-            response = 'Топ пидоров за все время:\n'
+            response = 'Рейтинг пидоров за все время:\n'
             count = 1
             total_pidor_count = 0
             for pidor in pidors:
-                response += '{count}. {name} - {pidor_count}\n'.format(count=count, name=pidor[2], pidor_count=pidor[3])
+                response += f'{TOP_EMOJI.get(count, str(count)+".")} {pidor[2]} - {pidor[3]}\n'
                 count += 1
                 total_pidor_count += pidor[3]
-
-            response += '\nСредний показатель пидорства: ' + str(total_pidor_count / (count - 1))
+            # response += '\nСредний показатель пидорства: ' + str(total_pidor_count / (count - 1))
             self._vk.messages.send(peer_id=int(chat_id+2e9), message=response)
         else:
             self._vk.messages.send(peer_id=int(chat_id+2e9), message='Случилась какая-то хуйня, в базе данных пидоров '
@@ -87,6 +87,7 @@ class Pidors:
 
     def choose_pidor(self, chat):
         members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9))['profiles']
+        random.seed()
         pidor = random.choice(members)
         self._chats_database.increment_pidor_count(chat, pidor['id'])
         self._chats_database.set_last_pidor(chat, pidor['id'])
@@ -110,7 +111,7 @@ class Pidors:
 
     def new_member(self, chat_id, user_id):
         members = self._chats_database.get_all_members(chat_id)
-        if chat_id in members:
+        if user_id in members:
             self._chats_database.member_came_back(chat_id, user_id)
             logging.debug('Member {} came back to chat {}'.format(user_id, chat_id))
         else:

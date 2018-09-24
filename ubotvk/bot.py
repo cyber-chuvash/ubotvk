@@ -150,7 +150,7 @@ class Bot:
                 self.new_chat(int(update[3] - 2e9))
 
             if update[5].strip()[:len(str(self.vk_id))+4] == '[id{}|'.format(self.vk_id):
-                command = utils.command_in_string(update[5].strip(), ['add', 'remove'])
+                command = utils.command_in_string(update[5].strip(), ['add', 'remove', 'help'])
                 if command:
                     self.handle_command(command, int(update[3] - 2e9))
 
@@ -160,6 +160,9 @@ class Bot:
 
         elif command[0] == 'remove':
             self.command_remove(command[1:], chat_id)
+
+        elif command[0] == 'help':
+            self.command_help(chat_id)
 
     def command_add(self, command, chat_id):
         feature = command[0]
@@ -177,8 +180,8 @@ class Bot:
 
         else:
             self.vk_api.messages.send(peer_id=int(chat_id+2e9),
-                                      message='Нет такой функции или она уже включена: "{}"'.format(feature))
-            # TODO отправлять список доступных фич
+                                      message=f'Нет такой функции или она уже включена: "{feature}"\n'
+                                              f'Доступные функции: {", ".join([f for f in Config.INSTALLED_FEATURES])}.')
 
     def command_remove(self, command, chat_id):
         feature = command[0]
@@ -194,9 +197,20 @@ class Bot:
             self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Отключил {} для этого чата'.format(feature))
             logging.info('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
         else:
-            self.vk_api.messages.send(peer_id=int(chat_id+2e9),
-                                      message='Нет такой функции или она уже отключена: "{}"'.format(feature))
-            # TODO отправлять список включенных фич
+            self.vk_api.messages.send(
+                peer_id=int(chat_id+2e9),
+                message=f'Нет такой функции или она уже отключена: "{feature}"\n'
+                f'Включенные функции: '
+                f'{", ".join([f for f in self.dict_feature_chats if chat_id in self.dict_feature_chats[f]])}.'
+            )
+
+    def command_help(self, chat_id):
+        self.vk_api.messages.send(
+            peer_id=int(chat_id + 2e9),
+            message=f'Включить функцию: [id{self.vk_id}|bot] add <название функции>\n'
+                    f'Отключить функцию: [id{self.vk_id}|bot] remove <название функции>\n\n'
+                    f'Список доступных функций: {", ".join([f for f in Config.INSTALLED_FEATURES])}.'
+        )
 
     def new_chat(self, chat_id):
         self.db.add_chat(chat_id)
@@ -204,6 +218,13 @@ class Bot:
 
         for feature in Config.DEFAULT_FEATURES:
             self.dict_feature_chats[feature].append(chat_id)
+
+        self.vk_api.messages.send(
+            peer_id=int(chat_id+2e9),
+            message='а'
+        )
+        self.command_help(chat_id)
+
         logging.info('Added new chat {}'.format(chat_id))
 
     def check_for_service_message(self, update):

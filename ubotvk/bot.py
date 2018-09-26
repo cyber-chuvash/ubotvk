@@ -150,53 +150,88 @@ class Bot:
                 self.new_chat(int(update[3] - 2e9))
 
             if update[5].strip()[:len(str(self.vk_id))+4] == '[id{}|'.format(self.vk_id):
-                command = utils.command_in_string(update[5].strip(), ['add', 'remove'])
+                command = utils.command_in_string(update[5].strip(), ['add', 'on', 'remove', 'off', 'help', 'хелп'])
                 if command:
                     self.handle_command(command, int(update[3] - 2e9))
 
     def handle_command(self, command, chat_id):
-        if command[0] == 'add':
+        if command[0] in ['add', 'on']:
             self.command_add(command[1:], chat_id)
 
-        elif command[0] == 'remove':
+        elif command[0] in ['remove', 'off']:
             self.command_remove(command[1:], chat_id)
+
+        elif command[0] in ['help', 'хелп']:
+            self.command_help(chat_id)
 
     def command_add(self, command, chat_id):
         feature = command[0]
-        if feature in Config.INSTALLED_FEATURES and chat_id not in self.dict_feature_chats[feature]:
-            self.db.add_feature(chat_id, feature)
-            self.dict_feature_chats[feature].append(chat_id)
-            try:
-                self.features[feature].new_chat(chat_id)
-                logging.debug('{}.new_chat() was called'.format(feature))
-            except AttributeError:
-                logging.debug('{} has no new_chat method'.format(feature))
+        if feature in Config.INSTALLED_FEATURES:
+            if chat_id not in self.dict_feature_chats[feature]:
+                self.db.add_feature(chat_id, feature)
+                self.dict_feature_chats[feature].append(chat_id)
+                try:
+                    self.features[feature].new_chat(chat_id)
+                    logging.debug('{}.new_chat() was called'.format(feature))
+                except AttributeError:
+                    logging.debug('{} has no new_chat method'.format(feature))
 
-            self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Включил {} для этого чата'.format(feature))
-            logging.info('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
+                self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Включил {} для этого чата'.format(feature))
+                logging.info('Added new feature {f} to chat {c}'.format(f=command[0], c=str(chat_id)))
 
+            else:
+                self.vk_api.messages.send(
+                    peer_id=int(chat_id+2e9),
+                    message=f'Функция уже включена.\n'
+                            f'Доступные функции: {", ".join([f for f in Config.INSTALLED_FEATURES])}.'
+                )
         else:
-            self.vk_api.messages.send(peer_id=int(chat_id+2e9),
-                                      message='Нет такой функции или она уже включена: "{}"'.format(feature))
-            # TODO отправлять список доступных фич
+            self.vk_api.messages.send(
+                peer_id=int(chat_id+2e9),
+                message=f'Нет такой функции.\n'
+                f'Доступные функции: {", ".join([f for f in Config.INSTALLED_FEATURES])}.'
+            )
 
     def command_remove(self, command, chat_id):
         feature = command[0]
-        if feature in Config.INSTALLED_FEATURES and chat_id in self.dict_feature_chats[feature]:
-            self.db.remove_feature(chat_id, feature)
-            self.dict_feature_chats[feature].remove(chat_id)
-            try:
-                self.features[feature].remove_chat(chat_id)
-                logging.debug('{}.remove_chat() was called'.format(feature))
-            except AttributeError:
-                logging.debug('{} has no remove_chat method'.format(feature))
+        if feature in Config.INSTALLED_FEATURES:
+            if chat_id in self.dict_feature_chats[feature]:
+                if feature not in Config.DEFAULT_FEATURES:
+                    self.db.remove_feature(chat_id, feature)
 
-            self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Отключил {} для этого чата'.format(feature))
-            logging.info('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
+                self.dict_feature_chats[feature].remove(chat_id)
+                try:
+                    self.features[feature].remove_chat(chat_id)
+                    logging.debug('{}.remove_chat() was called'.format(feature))
+                except AttributeError:
+                    logging.debug('{} has no remove_chat method'.format(feature))
+
+                self.vk_api.messages.send(peer_id=int(chat_id+2e9), message='Отключил {} для этого чата'.format(feature))
+                logging.info('Removed feature {f} from chat {c}'.format(f=command[0], c=str(chat_id)))
+            else:
+                self.vk_api.messages.send(
+                    peer_id=int(chat_id + 2e9),
+                    message=
+                    f'Функция уже отключена.\n'
+                    f'Включенные функции: '
+                    f'{", ".join([f for f in self.dict_feature_chats if chat_id in self.dict_feature_chats[f]])}.'
+                )
         else:
-            self.vk_api.messages.send(peer_id=int(chat_id+2e9),
-                                      message='Нет такой функции или она уже отключена: "{}"'.format(feature))
-            # TODO отправлять список включенных фич
+            self.vk_api.messages.send(
+                peer_id=int(chat_id+2e9),
+                message=f'Нет такой функции.\n'
+                f'Включенные функции: '
+                f'{", ".join([f for f in self.dict_feature_chats if chat_id in self.dict_feature_chats[f]])}.'
+            )
+
+    def command_help(self, chat_id):
+        self.vk_api.messages.send(
+            peer_id=int(chat_id + 2e9),
+            message=f'Включить функцию: @[id{self.vk_id}|bot] on <название функции>\n'
+                    f'Отключить функцию: @[id{self.vk_id}|bot] off <название функции>\n'
+                    f'Отправить это сообщение еще раз: @[id{self.vk_id}|bot] help\n\n'
+                    f'Список доступных функций: {", ".join([f for f in Config.INSTALLED_FEATURES])}.'
+        )
 
     def new_chat(self, chat_id):
         self.db.add_chat(chat_id)
@@ -204,6 +239,13 @@ class Bot:
 
         for feature in Config.DEFAULT_FEATURES:
             self.dict_feature_chats[feature].append(chat_id)
+
+        self.vk_api.messages.send(
+            peer_id=int(chat_id+2e9),
+            message='а'
+        )
+        self.command_help(chat_id)
+
         logging.info('Added new chat {}'.format(chat_id))
 
     def check_for_service_message(self, update):
@@ -211,11 +253,20 @@ class Bot:
             if update[0] == 4 and 'source_act' in update[6]:
                 if update[6]['source_act'] == 'chat_invite_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was invited in update {}'.format(update))
-                    self.new_member(int(update[3]-2e9), update[6]['source_mid'])
+                    self.new_member(int(update[3]-2e9), int(update[6]['source_mid']))
 
                 if update[6]['source_act'] == 'chat_kick_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was kicked in update {}'.format(update))
-                    self.remove_member(int(update[3]-2e9), update[6]['source_mid'])
+                    self.remove_member(int(update[3]-2e9), int(update[6]['source_mid']))
+
+                if update[6]['source_act'] == 'chat_invite_user_by_link':
+                    if update[6]['from'] == self.vk_id:
+                        logging.info('Bot joined the conversation in update {}'.format(update))
+                        if int(update[3] - 2e9) not in self._chats:
+                            self.new_chat(int(update[3]-2e9))
+                    else:
+                        logging.info('User joined the conversation in update {}'.format(update))
+                        self.new_member(int(update[3]-2e9), int(update[6]['from']))
 
         except IndexError as er:
             logging.warning('VK returned Long Poll update with code 4, but update[6] raised IndexError: {}'.format(er))

@@ -253,11 +253,11 @@ class Bot:
             if update[0] == 4 and 'source_act' in update[6]:
                 if update[6]['source_act'] == 'chat_invite_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was invited in update {}'.format(update))
-                    self.new_member(int(update[3]-2e9), update[6]['source_mid'])
+                    self.new_member(int(update[3]-2e9), int(update[6]['source_mid']))
 
                 if update[6]['source_act'] == 'chat_kick_user' and not update[6]['source_mid'] == self.vk_id:
                     logging.info('User was kicked in update {}'.format(update))
-                    self.remove_member(int(update[3]-2e9), update[6]['source_mid'])
+                    self.remove_member(int(update[3]-2e9), int(update[6]['source_mid']))
 
                 if update[6]['source_act'] == 'chat_invite_user_by_link':
                     if update[6]['from'] == self.vk_id:
@@ -266,7 +266,7 @@ class Bot:
                             self.new_chat(int(update[3]-2e9))
                     else:
                         logging.info('User joined the conversation in update {}'.format(update))
-                        self.new_member(int(update[3]-2e9), update[6]['from'])
+                        self.new_member(int(update[3]-2e9), int(update[6]['from']))
 
         except IndexError as er:
             logging.warning('VK returned Long Poll update with code 4, but update[6] raised IndexError: {}'.format(er))

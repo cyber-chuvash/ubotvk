@@ -19,7 +19,7 @@ class Pidors:
         self._chats_database = Database()
 
         scheduler = BackgroundScheduler(timezone=timezone('Europe/Moscow'))
-        scheduler.add_job(self.pidors_job, 'cron', minute='*')
+        scheduler.add_job(self.pidors_job, 'cron', hour='8')
         scheduler.start()
 
         # Long Poll codes that should trigger this feature. More info: https://vk.com/dev/using_longpoll

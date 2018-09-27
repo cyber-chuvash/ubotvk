@@ -1,0 +1,23 @@
+sudo: required
+
+services:
+  - docker
+
+env:
+  global:
+    - REGISTRY_USER=cyberchuvash
+
+before_script:
+  - docker pull cyberchuvash/ubotvk || true
+
+script:
+  - docker build --pull --cache-from cyberchuvash/ubotvk --tag cyberchuvash/ubotvk .
+
+before_deploy:
+  - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+
+deploy:
+  provider: script
+  script: docker push cyberchuvash/ubotvk
+  on:
+    branch: master

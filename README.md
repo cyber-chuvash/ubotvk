@@ -1,8 +1,8 @@
 # UbotVK
+[![Build Status](https://travis-ci.org/cyber-chuvash/ubotvk.svg?branch=master)](https://travis-ci.org/cyber-chuvash/ubotvk)
 
 ``` bash
-$ wget https://github.com/cyber-chuvash/ubotvk/releases/download/v1.1/ubotvk.tar
-$ docker load < ubotvk.tar
+$ docker pull cyberchuvash/ubotvk
 $ docker run -d --name ubot \
 --mount type=volume,source=ubotvk-log,dst=/app/log/ \
 --mount type=volume,source=ubotvk-data,dst=/app/data/ \

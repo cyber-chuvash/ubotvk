@@ -13,5 +13,3 @@ $ docker run -d --name ubot \
 -e UBOTVK_LOG_LEVEL="WARNING" \
 ubotvk
 ```
-
-test

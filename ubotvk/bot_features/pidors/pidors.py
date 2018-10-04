@@ -114,7 +114,7 @@ class Pidors:
         if user_id in members:
             self._chats_database.member_came_back(chat_id, user_id)
             logging.debug('Member {} came back to chat {}'.format(user_id, chat_id))
-        else:
+        elif int(user_id) > 0:
             member = self._vk.users.get(user_ids=user_id)[0]
             self._chats_database.add_member(chat_id, member)
             logging.debug('New member {} in chat {}'.format(user_id, chat_id))

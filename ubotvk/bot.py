@@ -101,7 +101,7 @@ class Bot:
             raise Exception('VK returned lp response with unexpected "failed" value. Response: {}'.format(res))
 
     def handle_update(self, update):
-        logging.info('Got new update: {}'.format(update))
+        logging.debug('Got new update: {}'.format(update))
 
         self.check_for_commands(update)
 

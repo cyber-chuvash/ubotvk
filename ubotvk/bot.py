@@ -101,7 +101,7 @@ class Bot:
             raise Exception('VK returned lp response with unexpected "failed" value. Response: {}'.format(res))
 
     def handle_update(self, update):
-        logging.info('Got new update: {}'.format(update))
+        logging.debug('Got new update: {}'.format(update))
 
         self.check_for_commands(update)
 
@@ -244,16 +244,16 @@ class Bot:
     def check_for_service_message(self, update):
         try:
             if update[0] == 4 and 'source_act' in update[6]:
-                if update[6]['source_act'] == 'chat_invite_user' and not update[6]['source_mid'] == self.vk_id:
+                if update[6]['source_act'] == 'chat_invite_user' and not update[6]['source_mid'] == str(self.vk_id):
                     logging.info('User was invited in update {}'.format(update))
                     self.new_member(int(update[3]-2e9), int(update[6]['source_mid']))
 
-                if update[6]['source_act'] == 'chat_kick_user' and not update[6]['source_mid'] == self.vk_id:
+                if update[6]['source_act'] == 'chat_kick_user' and not update[6]['source_mid'] == str(self.vk_id):
                     logging.info('User was kicked in update {}'.format(update))
                     self.remove_member(int(update[3]-2e9), int(update[6]['source_mid']))
 
                 if update[6]['source_act'] == 'chat_invite_user_by_link':
-                    if update[6]['from'] == self.vk_id:
+                    if update[6]['from'] == str(self.vk_id):
                         logging.info('Bot joined the conversation in update {}'.format(update))
                         if int(update[3] - 2e9) not in self._chats:
                             self.new_chat(int(update[3]-2e9))

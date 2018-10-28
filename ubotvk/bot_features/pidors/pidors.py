@@ -76,6 +76,7 @@ class Pidors:
 
     def pidors_job(self):   # TODO use VK execute
         chats = self._chats_database.chats
+        logging.info(f'Contents of chats list: {chats}')
         start_time, end_time = 0, 1
         for chat in chats:
             time_delta = end_time - start_time
@@ -84,20 +85,23 @@ class Pidors:
                 time.sleep(1-time_delta)
             start_time = time.time()
             try:
+                logging.info(f'Choosing pidor for chat {chat}')
                 self.choose_pidor(chat)
             except VkAPIError as err:
                 logging.info(f'choose_pidor() for chat {chat} resulted in VkAPIError: {err}')
-            end_time = time.time()
-
+                
     def choose_pidor(self, chat):
         members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9))['profiles']
+        logging.info(f'Got conversation members for chat {chat}: {members}')
         random.seed()
         pidor = random.choice(members)
         self._chats_database.increment_pidor_count(chat, pidor['id'])
         self._chats_database.set_last_pidor(chat, pidor['id'])
         message = """Пидор сегодняшнего дня: [id{id}|{f_name} {l_name}]. Поздравляем!"""\
                   .format(id=pidor['id'], f_name=pidor['first_name'], l_name=pidor['last_name'])
-        self._vk.messages.send(peer_id=int(2e9+chat), message=message)
+        logging.info(f'Chose new pidor for chat {chat}: {pidor["id"]} {pidor["first_name"]} {pidor["last_name"]}')
+        res = self._vk.messages.send(peer_id=int(2e9+chat), message=message)
+        logging.info(f'Sent a message with new pidor, response: {res}')
 
     def new_chat(self, chat_id):
         if chat_id not in self._chats_database.chats:
@@ -192,7 +196,6 @@ class Database:
                        (chat_id, user_id))
         pidor_count = cursor.fetchone()
         conn.close()
-        logging.info(pidor_count)
         return pidor_count[0] if pidor_count is not None else None
 
     def get_last_pidor(self, chat_id):
@@ -201,7 +204,6 @@ class Database:
         cursor.execute("""SELECT last_pidor_id FROM Chats WHERE chat_id=?""", (chat_id,))
         pidor = cursor.fetchone()
         conn.close()
-        logging.info(pidor)
         return pidor[0]
 
     def set_last_pidor(self, chat_id, new_pidor_id):

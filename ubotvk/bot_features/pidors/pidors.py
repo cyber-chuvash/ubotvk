@@ -5,6 +5,7 @@ import logging
 
 from pytz import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
+from vk_requests.exceptions import VkAPIError
 
 from ubotvk import utils
 from ubotvk.config import Config
@@ -83,10 +84,12 @@ class Pidors:
                 logging.debug('Sleeping for {} seconds'.format(1-time_delta))
                 time.sleep(1-time_delta)
             start_time = time.time()
-            logging.info(f'Choosing pidor for chat {chat}')
-            self.choose_pidor(chat)
-            end_time = time.time()
-
+            try:
+                logging.info(f'Choosing pidor for chat {chat}')
+                self.choose_pidor(chat)
+            except VkAPIError as err:
+                logging.info(f'choose_pidor() for chat {chat} resulted in VkAPIError: {err}')
+                
     def choose_pidor(self, chat):
         members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9))['profiles']
         logging.info(f'Got conversation members for chat {chat}: {members}')

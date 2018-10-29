@@ -11,5 +11,5 @@ $ docker run -d --name ubot \
 -e VK_PASS="pa$$w0rd" \
 -e UBOTVK_INST_FEAT="pidors,hardbass" \
 -e UBOTVK_LOG_LEVEL="WARNING" \
-ubotvk
+cyberchuvash/ubotvk
 ```

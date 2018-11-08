@@ -118,7 +118,7 @@ class Bot:
                 except VkAPIError as api_err:
                     logging.error('VkAPIError occurred, was caught, but not handled.', exc_info=True)
                     # if api_err.code == TODO: Proper handling of VK API errors
-        elif int(update[3] - 2e9) in Config.DEBUG_ALLOWED_CHATS:
+        elif update[0] == 4 and int(update[3] - 2e9) in Config.DEBUG_ALLOWED_CHATS:
             for feature in self.features:
                 if update[0] in self.features[feature].triggered_by:
                     if int(update[3] - 2e9) in self.dict_feature_chats[feature]:

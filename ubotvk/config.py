@@ -35,6 +35,6 @@ class Config:
         MAINTAINER_VK_ID = int(os.environ.get('UBOTVK_MAINTAINER_ID', 212771532))
         DEBUG = bool(os.environ.get('UBOTVK_DEBUG', False))
         if DEBUG:
-            DEBUG_ALLOWED_CHATS = tuple(os.environ['UBOTVK_DEBUG_CHATS'].split(','))
+            DEBUG_ALLOWED_CHATS = tuple(int(x) for x in os.environ['UBOTVK_DEBUG_CHATS'].split(','))
 
 

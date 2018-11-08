@@ -43,6 +43,7 @@ class Pidors:
 
     def top_pidor(self, chat_id):
         pidors = self._vk.messages.getConversationMembers(peer_id=int(chat_id+2e9), fields='id')['profiles']
+        pidors = list(filter(lambda x: not x['id'] == self._vk_id, pidors))
 
         for pidor in pidors:
             pidor['pidor_count'] = self._chats_database.get_user_count(pidor['id'])

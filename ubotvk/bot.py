@@ -103,20 +103,28 @@ class Bot:
     def handle_update(self, update):
         logging.debug('Got new update: {}'.format(update))
 
-        self.check_for_commands(update)
+        if not Config.DEBUG:
+            self.check_for_commands(update)
+            self.check_for_service_message(update)
+            for feature in self.features:
+                try:
+                    if update[0] in self.features[feature].triggered_by:
+                        if int(update[3] - 2e9) in self.dict_feature_chats[feature]:
+                            self.features[feature](update)
+                            logging.debug('Called {f} with {u}'.format(f=feature, u=update))
 
-        self.check_for_service_message(update)
+                except VkAPIError as api_err:
+                    logging.error('VkAPIError occurred, was caught, but not handled.', exc_info=True)
+                    # if api_err.code == TODO: Proper handling of VK API errors
 
-        for feature in self.features:
-            try:
+        elif update[0] == 4 and int(update[3] - 2e9) in Config.DEBUG_ALLOWED_CHATS:
+            self.check_for_commands(update)
+            self.check_for_service_message(update)
+            for feature in self.features:
                 if update[0] in self.features[feature].triggered_by:
                     if int(update[3] - 2e9) in self.dict_feature_chats[feature]:
                         self.features[feature](update)
                         logging.debug('Called {f} with {u}'.format(f=feature, u=update))
-
-            except VkAPIError as api_err:
-                logging.error('VkAPIError occurred, was caught, but not handled.', exc_info=True)
-                # if api_err.code == TODO: Proper handling of VK API errors
 
     def import_features(self) -> dict:
         """

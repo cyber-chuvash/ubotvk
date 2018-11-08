@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from vk_requests.exceptions import VkAPIError
 
 from ubotvk import utils
-# from ubotvk.config import Config
+from ubotvk.config import Config
 
 DATABASE_FILE = 'data/pidors.sqlite3'
 TOP_EMOJI = {1: '🏳‍🌈️🔥', 2: '🍑🍌', 3: '👬💖', 4: '🌚🌝', 5: '🐔💞'}
@@ -21,7 +21,10 @@ class Pidors:
         self._chats_database = Database()
 
         scheduler = BackgroundScheduler(timezone=timezone('Europe/Moscow'))
-        scheduler.add_job(self.pidors_job, 'cron', hour='8')
+        if Config.DEBUG:
+            scheduler.add_job(self.pidors_job, 'cron', minute='*')
+        else:
+            scheduler.add_job(self.pidors_job, 'cron', hour='8')
         scheduler.start()
 
         # Long Poll codes that should trigger this feature. More info: https://vk.com/dev/using_longpoll
@@ -92,7 +95,10 @@ class Pidors:
         self._vk.messages.send(peer_id=int(chat_id+2e9), message=response)
 
     def pidors_job(self):   # TODO use VK execute
-        chats = self._chats_database.chats
+        if Config.DEBUG:
+            chats = Config.DEBUG_ALLOWED_CHATS
+        else:
+            chats = self._chats_database.chats
         logging.debug(f'Contents of chats list: {chats}')
         start_time, end_time = 0, 1
         for chat in chats:

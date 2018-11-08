@@ -17,6 +17,7 @@ TOP_EMOJI = {1: '🏳‍🌈️🔥', 2: '🍑🍌', 3: '👬💖', 4: '🌚🌝
 class Pidors:
     def __init__(self, vk_api):
         self._vk = vk_api
+        self._vk_id = self._vk.users.get()[0]['id']
         self._chats_database = Database()
 
         scheduler = BackgroundScheduler(timezone=timezone('Europe/Moscow'))
@@ -108,7 +109,8 @@ class Pidors:
             end_time = time.time()
                 
     def choose_pidor(self, chat):
-        members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9))['profiles']
+        members = self._vk.messages.getConversationMembers(peer_id=int(chat + 2e9), fields='id')['profiles']
+        members = list(filter(lambda x: not x['id'] == self._vk_id, members))
         logging.debug(f'Got conversation members for chat {chat}: {members}')
         random.seed()
         pidor = random.choice(members)

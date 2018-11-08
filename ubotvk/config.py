@@ -16,6 +16,9 @@ class Config:
         LOG_DIR = _conf.get('log_dir', None)
         LOG_LEVEL = _conf.get('log_level', 'WARNING')
         MAINTAINER_VK_ID = int(_conf['maintainer_vk_id'])
+        DEBUG = _conf.get('debug', False)
+        if DEBUG:
+            DEBUG_ALLOWED_CHATS = tuple(_conf['debug_allowed_chats'])
 
     except FileNotFoundError:
         LOGIN = str(os.environ['VK_LOGIN'])
@@ -30,5 +33,8 @@ class Config:
         LOG_DIR = os.environ.get('UBOTVK_LOG_DIR', None)
         LOG_LEVEL = os.environ.get('UBOTVK_LOG_LEVEL', 'WARNING')
         MAINTAINER_VK_ID = int(os.environ.get('UBOTVK_MAINTAINER_ID', 212771532))
+        DEBUG = bool(os.environ.get('UBOTVK_DEBUG', False))
+        if DEBUG:
+            DEBUG_ALLOWED_CHATS = tuple(os.environ['UBOTVK_DEBUG_CHATS'].split(','))
 
 

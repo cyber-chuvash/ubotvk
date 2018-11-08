@@ -8,16 +8,17 @@ env:
     - REGISTRY_USER=cyberchuvash
 
 before_script:
-  - docker pull cyberchuvash/ubotvk || true
+  - docker pull cyberchuvash/ubotvk:$TRAVIS_BRANCH || true
 
 script:
-  - docker build --pull --cache-from cyberchuvash/ubotvk --tag cyberchuvash/ubotvk .
+  - docker build --pull --cache-from cyberchuvash/ubotvk:$TRAVIS_BRANCH --tag cyberchuvash/ubotvk:$TRAVIS_BRANCH .
 
 before_deploy:
   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
 
 deploy:
   provider: script
-  script: docker push cyberchuvash/ubotvk
+  script: docker push cyberchuvash/ubotvk:$TRAVIS_BRANCH
   on:
-    branch: master
+    all_branches: true
+    condition: $TRAVIS_BRANCH =~ ^dev|master$
